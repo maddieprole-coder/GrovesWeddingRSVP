@@ -1,373 +1,1124 @@
-/**
- * Honeymoon fund backend (Google Apps Script + Stripe Checkout)
- *
- * SETUP (once)
- * 1. In the Google Sheet: Extensions > Apps Script. Delete the default code and paste this whole file.
- * 2. Project Settings (gear icon) > Script properties > Add property:
- *      Name:  STRIPE_SECRET_KEY
- *      Value: your Stripe secret key (sk_test_... while testing, sk_live_... for real money)
- * 3. In the function dropdown, choose `setup` and click Run. Approve the permissions.
- * 4. Deploy > New deployment > type: Web app. Execute as: Me. Who has access: Anyone. Deploy.
- *    Copy the Web app URL (ends in /exec).
- * 5. Paste that URL into CHECKOUT_ENDPOINT in the website file and in thanks.html.
- * 6. Stripe Dashboard > Developers > Webhooks > Add endpoint. Paste the same Web app URL.
- *    Events to send: checkout.session.completed and checkout.session.expired.
- *
- * After editing this code later: Deploy > Manage deployments > edit the pencil icon >
- * Version: New version > Deploy. Otherwise the live site keeps running the old code.
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ryan &amp; Maddie Groves · RSVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f6eddc;
+    --paper: #fbf6ea;
+    --ink: #3b2b1f;
+    --muted: #8b7760;
+    --line: #e4d6bb;
+    --ember: #a94a24;
+    --ember-deep: #7d3218;
+    --gold: #c98a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 40px 16px;
+    font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    color: var(--ink);
+    background:
+      radial-gradient(120% 90% at 85% 0%, rgba(201,138,58,.55) 0%, transparent 55%),
+      linear-gradient(160deg, var(--ember-deep) 0%, var(--ember) 55%, #6b2a14 100%);
+  }
+  .card {
+    max-width: 560px;
+    margin: 0 auto;
+    background: var(--paper);
+    border-radius: 22px;
+    padding: 44px 36px;
+    box-shadow: 0 30px 60px -20px rgba(60,30,10,.35);
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 14px;
+    font-weight: 400;
+  }
+  h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 400;
+    font-size: 38px;
+    text-align: center;
+    margin: 0 0 10px;
+  }
+  h1 em { color: var(--ember); }
+  .intro { text-align: center; color: #5b4636; margin: 0 0 30px; }
+  .field { margin-bottom: 18px; }
+  label, .legend {
+    display: block;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 400;
+  }
+  input[type="text"], select, textarea {
+    width: 100%;
+    font-family: 'Lato', sans-serif;
+    font-size: 16px;
+    padding: 11px 14px;
+    color: var(--ink);
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  input[readonly] { background: #efe4cc; color: var(--muted); }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ember); }
+  .choice-row { display: flex; gap: 12px; }
+  .choice {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 16px;
+    color: var(--ink);
+    margin: 0;
+    transition: background .2s, border-color .2s;
+  }
+  .choice:hover { border-color: var(--gold); }
+  .choice.selected { background: var(--ember); border-color: var(--ember); color: #fff; }
+  .choice input { display: none; }
+  .person {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 20px 6px;
+    margin-bottom: 18px;
+  }
+  .person h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
+    color: var(--ember);
+    margin: 0 0 14px;
+  }
+  .person .field:last-child { margin-bottom: 14px; }
+  .section-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ember);
+    margin: 30px 0 14px;
+  }
+  button.primary {
+    width: 100%;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 15px 22px;
+    border-radius: 999px;
+    border: 1px solid var(--ember);
+    background: var(--ember);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  button.primary:hover { background: var(--ember-deep); border-color: var(--ember-deep); }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { min-height: 1.5em; text-align: center; color: var(--ember); margin-top: 14px; font-size: 15px; }
+  .names {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 46px;
+    line-height: 1.05;
+    text-align: center;
+    color: var(--ink);
+  }
+  .names em { color: var(--ember); }
+  .surname {
+    text-align: center;
+    font-size: 14px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 6px 0 16px;
+  }
+  .details {
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 26px;
+  }
+  .hidden { display: none !important; }
+  .done { text-align: center; padding: 20px 0; }
+  .done h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 400; font-size: 30px; margin: 10px 0; }
+  .done p { color: #5b4636; }
+  @media (max-width: 600px) {
+    .card { padding: 32px 22px; }
+    h1 { font-size: 30px; }
+    .choice-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="names">Ryan <em>&amp;</em> Maddie</div>
+  <div class="surname">Groves</div>
+  <p class="details">5 November 2027 &middot; Cooling Castle Barn</p>
+  <h1>Will you <em>join us</em>?</h1>
+  <p class="intro" id="intro">Loading your invitation...</p>
 
-const SHEET_ID = '1-kSXVHEdHBnJad2cemaO4Qn_enqnVSYEAUPDCE2w2Cc';
-const SITE_URL = 'https://maddieprole-coder.github.io/Honeymoon-Funds/';
-const HOLD_MINUTES = 30;       // how long a selection is held while the guest pays
-const EXPERIENCE_COUNT = 27;   // rows 2-28 on the Experiences tab, in the same order as the website
+  <!-- Shown when the link has no valid code -->
+  <div class="msg hidden" id="noCode" style="font-size:16px;color:var(--ink)">Please use the link from your invitation to reply.</div>
 
-// ---------- Web app entry points ----------
+  <form id="rsvp" class="hidden" novalidate>
 
-function doGet(e) {
-  const action = (e && e.parameter && e.parameter.action) || '';
-  if (action === 'progress') return json_({ funded: tally_().paid });
-  if (action === 'details') return json_(thankYouDetails_(e.parameter.res));
-  if (action === 'invite') return json_(inviteDetails_(e.parameter.code));
-  return json_({ ok: true });
+    <section>
+      <span class="legend">Will you be there?</span>
+      <div class="choice-row" id="attendRow">
+        <label class="choice" data-value="yes"><input type="radio" name="attending" value="yes">Joyfully yes</label>
+        <label class="choice" data-value="no"><input type="radio" name="attending" value="no">Sadly no</label>
+      </div>
+    </section>
+
+    <section id="guestSection" class="hidden">
+      <div class="section-title">Your details</div>
+      <div id="people"></div>
+
+      <div class="field">
+        <label for="notes">Anything else we should know?</label>
+        <textarea id="notes" maxlength="300" placeholder="Anything else you'd like us to know"></textarea>
+      </div>
+    </section>
+
+    <button type="submit" class="primary" id="submit">Send RSVP</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="done hidden" id="done">
+    <h2 id="doneTitle">Thank you!</h2>
+    <p id="doneText">We've got your RSVP and can't wait to celebrate with you.</p>
+  </div>
+</main>
+
+<script>
+// Same web app URL as the gift page.
+const CHECKOUT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxJApu6vpn5KDox0QvngqmKdQHM3H01O5lmvf8NfIk9ag6GQ6zemhLqRJSTM95kz2wY/exec";
+const $ = id => document.getElementById(id);
+const code = new URLSearchParams(location.search).get("code") || "";
+
+// Placeholder menus. Replace these lists with the real choices.
+const MENU = {
+  adult: {
+    starter: ["Starter option 1", "Starter option 2"],
+    main: ["Main option 1", "Main option 2", "Vegetarian option"],
+    dessert: ["Dessert option 1", "Dessert option 2"]
+  },
+  kids: {
+    main: ["Kids option 1", "Kids option 2"],
+    dessert: ["Kids dessert option"]
+  }
+};
+
+const INVITES = {
+  "N5FZAN": {
+    "party": "Patsy & Michael Groves",
+    "type": "day",
+    "people": [
+      {
+        "name": "Patsy Groves",
+        "menu": "adult"
+      },
+      {
+        "name": "Michael Groves",
+        "menu": "adult"
+      }
+    ]
+  },
+  "NJ9FYA": {
+    "party": "Adam, Tamzin & Zac Groves",
+    "type": "day",
+    "people": [
+      {
+        "name": "Adam Groves",
+        "menu": "adult"
+      },
+      {
+        "name": "Tamzin Wilson",
+        "menu": "adult"
+      },
+      {
+        "name": "Zac Groves",
+        "menu": "kids"
+      }
+    ]
+  },
+  "GKWWNT": {
+    "party": "Gaynor & Steve Priddis",
+    "type": "day",
+    "people": [
+      {
+        "name": "Gaynor Priddis",
+        "menu": "adult"
+      },
+      {
+        "name": "Steve Priddis",
+        "menu": "adult"
+      }
+    ]
+  },
+  "AV8TW8": {
+    "party": "Tracey & Jim Britcher",
+    "type": "day",
+    "people": [
+      {
+        "name": "Tracey Britcher",
+        "menu": "adult"
+      },
+      {
+        "name": "Jim Britcher",
+        "menu": "adult"
+      }
+    ]
+  },
+  "UB5W9G": {
+    "party": "Jason & Louise Brooks",
+    "type": "day",
+    "people": [
+      {
+        "name": "Jason Brooks",
+        "menu": "adult"
+      },
+      {
+        "name": "Louise Brooks",
+        "menu": "adult"
+      }
+    ]
+  },
+  "AAKSVE": {
+    "party": "Melanie & Tommy Mislan Jones",
+    "type": "day",
+    "people": [
+      {
+        "name": "Melanie Mislan Jones",
+        "menu": "adult"
+      },
+      {
+        "name": "Tommy Mislan Jones",
+        "menu": "adult"
+      }
+    ]
+  },
+  "K9YH6Q": {
+    "party": "Louise & Matt Maughan",
+    "type": "day",
+    "people": [
+      {
+        "name": "Louise Maughan",
+        "menu": "adult"
+      },
+      {
+        "name": "Matt Maughan",
+        "menu": "adult"
+      }
+    ]
+  },
+  "9TY7WR": {
+    "party": "Gina & Barry Groves",
+    "type": "day",
+    "people": [
+      {
+        "name": "Gina Groves",
+        "menu": "adult"
+      },
+      {
+        "name": "Barry Groves",
+        "menu": "adult"
+      }
+    ]
+  },
+  "CS3FQP": {
+    "party": "Debbie & Julian Cowan",
+    "type": "day",
+    "people": [
+      {
+        "name": "Debbie Cowan",
+        "menu": "adult"
+      },
+      {
+        "name": "Julian Cowan",
+        "menu": "adult"
+      }
+    ]
+  },
+  "M3XHNV": {
+    "party": "Jamie Cowan & Plus One",
+    "type": "day",
+    "people": [
+      {
+        "name": "Jamie Cowan",
+        "menu": "adult"
+      },
+      {
+        "name": "",
+        "menu": "adult"
+      }
+    ]
+  },
+  "GUFNHJ": {
+    "party": "Holly & Chris Ansette",
+    "type": "day",
+    "people": [
+      {
+        "name": "Holly Ansette",
+        "menu": "adult"
+      },
+      {
+        "name": "Chris Ansette",
+        "menu": "adult"
+      }
+    ]
+  },
+  "7A2SY5": {
+    "party": "Sue Andrews",
+    "type": "day",
+    "people": [
+      {
+        "name": "Sue Andrews",
+        "menu": "adult"
+      }
+    ]
+  },
+  "TSKHNZ": {
+    "party": "Sharon & Mike Read",
+    "type": "day",
+    "people": [
+      {
+        "name": "Sharon Read",
+        "menu": "adult"
+      },
+      {
+        "name": "Mike Read",
+        "menu": "adult"
+      }
+    ]
+  },
+  "4SFV4R": {
+    "party": "Phil, Ivi & Anna Clark",
+    "type": "day",
+    "people": [
+      {
+        "name": "Phil Clark",
+        "menu": "adult"
+      },
+      {
+        "name": "Ivi Clark",
+        "menu": "adult"
+      },
+      {
+        "name": "Anna Clark",
+        "menu": "adult"
+      }
+    ]
+  },
+  "TUYH2D": {
+    "party": "Wendy Clark",
+    "type": "day",
+    "people": [
+      {
+        "name": "Wendy Clark",
+        "menu": "adult"
+      }
+    ]
+  },
+  "B225SX": {
+    "party": "Viv & Susie",
+    "type": "day",
+    "people": [
+      {
+        "name": "Viv",
+        "menu": "adult"
+      },
+      {
+        "name": "Susie",
+        "menu": "adult"
+      }
+    ]
+  },
+  "8VG282": {
+    "party": "Sally & David Heritage",
+    "type": "day",
+    "people": [
+      {
+        "name": "Sally Heritage",
+        "menu": "adult"
+      },
+      {
+        "name": "David Heritage",
+        "menu": "adult"
+      }
+    ]
+  },
+  "JXP59R": {
+    "party": "Josh, Ella, Zadie & Cassian King",
+    "type": "day",
+    "people": [
+      {
+        "name": "Josh King",
+        "menu": "adult"
+      },
+      {
+        "name": "Ella King",
+        "menu": "adult"
+      },
+      {
+        "name": "Zadie King",
+        "menu": "kids"
+      },
+      {
+        "name": "Cassian King",
+        "menu": "kids"
+      }
+    ]
+  },
+  "3YN3EU": {
+    "party": "Steve & Julie Prole",
+    "type": "day",
+    "people": [
+      {
+        "name": "Steve Prole",
+        "menu": "adult"
+      },
+      {
+        "name": "Julie Prole",
+        "menu": "adult"
+      }
+    ]
+  },
+  "64JTG7": {
+    "party": "Wendy & Mike Clegg",
+    "type": "day",
+    "people": [
+      {
+        "name": "Wendy Clegg",
+        "menu": "adult"
+      },
+      {
+        "name": "Mike Clegg",
+        "menu": "adult"
+      }
+    ]
+  },
+  "Q6QD56": {
+    "party": "Jo, Mike, Bella & Jessica Jones",
+    "type": "day",
+    "people": [
+      {
+        "name": "Jo Jones",
+        "menu": "adult"
+      },
+      {
+        "name": "Mike Jones",
+        "menu": "adult"
+      },
+      {
+        "name": "Bella Jones",
+        "menu": "adult"
+      },
+      {
+        "name": "Jessica Jones",
+        "menu": "kids"
+      }
+    ]
+  },
+  "WV3XYP": {
+    "party": "Dave, Anj, Cloe, Kadence & Poppy Clegg",
+    "type": "day",
+    "people": [
+      {
+        "name": "Dave Clegg",
+        "menu": "adult"
+      },
+      {
+        "name": "Anj Clegg",
+        "menu": "adult"
+      },
+      {
+        "name": "Cloe",
+        "menu": "adult"
+      },
+      {
+        "name": "Kadence Clegg",
+        "menu": "adult"
+      },
+      {
+        "name": "Poppy Clegg",
+        "menu": "adult"
+      }
+    ]
+  },
+  "XBVCV7": {
+    "party": "Fiona, Elaine, Angel & Kenzie King",
+    "type": "day",
+    "people": [
+      {
+        "name": "Fiona King",
+        "menu": "adult"
+      },
+      {
+        "name": "Elaine",
+        "menu": "adult"
+      },
+      {
+        "name": "Angel King",
+        "menu": "adult"
+      },
+      {
+        "name": "Kenzie King",
+        "menu": "adult"
+      }
+    ]
+  },
+  "HK6DAZ": {
+    "party": "Walton King",
+    "type": "day",
+    "people": [
+      {
+        "name": "Walton King",
+        "menu": "adult"
+      }
+    ]
+  },
+  "5V2TSQ": {
+    "party": "Natalia Connor, ONeal & Neyla",
+    "type": "day",
+    "people": [
+      {
+        "name": "Natalia Connor",
+        "menu": "adult"
+      },
+      {
+        "name": "ONeal",
+        "menu": "adult"
+      },
+      {
+        "name": "Neyla",
+        "menu": "kids"
+      }
+    ]
+  },
+  "H8B352": {
+    "party": "Charlotte",
+    "type": "day",
+    "people": [
+      {
+        "name": "Charlotte",
+        "menu": "adult"
+      }
+    ]
+  },
+  "AR7RDC": {
+    "party": "Emma & Mike Saunders",
+    "type": "day",
+    "people": [
+      {
+        "name": "Emma Saunders",
+        "menu": "adult"
+      },
+      {
+        "name": "Mike Saunders",
+        "menu": "adult"
+      }
+    ]
+  },
+  "4ZPM5X": {
+    "party": "H",
+    "type": "day",
+    "people": [
+      {
+        "name": "H",
+        "menu": "adult"
+      }
+    ]
+  },
+  "2G7M2W": {
+    "party": "Jo & Steve Pearson",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Jo Pearson",
+        "menu": "none"
+      },
+      {
+        "name": "Steve Pearson",
+        "menu": "none"
+      }
+    ]
+  },
+  "7335MJ": {
+    "party": "Dan Curzon & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Dan Curzon",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "QGT6GH": {
+    "party": "Adam Brown & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Adam Brown",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "RAAZKF": {
+    "party": "Brian Small & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Brian Small",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "5WEBD7": {
+    "party": "Tanya Summergill & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Tanya Summergill",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "YJTZSU": {
+    "party": "Sam & Neil Bowditch",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Sam Bowditch",
+        "menu": "none"
+      },
+      {
+        "name": "Neil Bowditch",
+        "menu": "none"
+      }
+    ]
+  },
+  "F3S4AA": {
+    "party": "Tiffany Hedges",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Tiffany Hedges",
+        "menu": "none"
+      }
+    ]
+  },
+  "4F44YN": {
+    "party": "Paul Openibo",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Paul Openibo",
+        "menu": "none"
+      }
+    ]
+  },
+  "QBRKY8": {
+    "party": "Kim Stevenson",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Kim Stevenson",
+        "menu": "none"
+      }
+    ]
+  },
+  "U7EZZN": {
+    "party": "Vicki & Dave Connelly",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Vicki Connelly",
+        "menu": "none"
+      },
+      {
+        "name": "Dave Connelly",
+        "menu": "none"
+      }
+    ]
+  },
+  "83N8HB": {
+    "party": "Danielle Warren & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Danielle Warren",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "3AKZTF": {
+    "party": "Nicole Foster & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Nicole Foster",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "UDQ864": {
+    "party": "Kym Kuypers & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Kym Kuypers",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "BK7VDP": {
+    "party": "Yee Ling Tan & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Yee Ling Tan",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "KAS3WW": {
+    "party": "Sam Deacon & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Sam Deacon",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "VM4U8Q": {
+    "party": "Muhammed Farsakoglu & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Muhammed Farsakoglu",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "484UUN": {
+    "party": "Andy & Judy Ming",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Andy Ming",
+        "menu": "none"
+      },
+      {
+        "name": "Judy Ming",
+        "menu": "none"
+      }
+    ]
+  },
+  "WA2PH2": {
+    "party": "Mauricio Gutierrez & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Mauricio Gutierrez",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "NUM3U3": {
+    "party": "Paola Agudelo & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Paola Agudelo",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "53CRUY": {
+    "party": "Patricia Ryan & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Patricia Ryan",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "NG383U": {
+    "party": "Fernando Canaveral & Plus One",
+    "type": "evening",
+    "people": [
+      {
+        "name": "Fernando Canaveral",
+        "menu": "none"
+      },
+      {
+        "name": "",
+        "menu": "none"
+      }
+    ]
+  },
+  "TESTMG": {
+    "party": "Maddie & Ryan Groves (TEST)",
+    "type": "day",
+    "people": [
+      {
+        "name": "Maddie Groves",
+        "menu": "adult"
+      },
+      {
+        "name": "Ryan Groves",
+        "menu": "adult"
+      }
+    ]
+  }
+};
+
+let invite = null;
+let attending = null;
+
+function selectOptions(id, options) {
+  const sel = document.createElement("select");
+  sel.id = id;
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "Choose one";
+  sel.appendChild(blank);
+  options.forEach(o => {
+    const opt = document.createElement("option");
+    opt.value = o;
+    opt.textContent = o;
+    sel.appendChild(opt);
+  });
+  return sel;
 }
 
-function doPost(e) {
-  const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+function labelled(text, control) {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  const lab = document.createElement("label");
+  lab.textContent = text;
+  wrap.append(lab, control);
+  return wrap;
+}
 
-  // Stripe webhook: Stripe's events have object === 'event'. Errors are thrown on purpose,
-  // so Stripe retries the event later if something went wrong.
-  if (body.object === 'event') {
-    handleStripeEvent_(body.id);
-    return json_({ received: true });
+// One card per person on the invitation, names filled in from the guest list.
+function renderPeople() {
+  const root = $("people");
+  root.innerHTML = "";
+  invite.people.forEach((p, i) => {
+    const card = document.createElement("div");
+    card.className = "person";
+    const h = document.createElement("h3");
+    h.textContent = p.name || "Plus one";
+    card.appendChild(h);
+
+    // Named guests are fixed; a plus one types their own name.
+    const name = document.createElement("input");
+    name.type = "text";
+    name.maxLength = 80;
+    name.id = "name" + i;
+    name.value = p.name;
+    if (p.name) name.readOnly = true;
+    else name.placeholder = "Their name";
+    card.appendChild(labelled("Name", name));
+
+    if (p.menu === "adult" || p.menu === "kids") {
+      const set = MENU[p.menu];
+      if (set.starter) card.appendChild(labelled("Starter", selectOptions("starter" + i, set.starter)));
+      card.appendChild(labelled("Main", selectOptions("main" + i, set.main)));
+      card.appendChild(labelled("Dessert", selectOptions("dessert" + i, set.dessert)));
+
+      const allergies = document.createElement("textarea");
+      allergies.id = "allergies" + i;
+      allergies.maxLength = 300;
+      allergies.placeholder = "For example: nuts, shellfish";
+      card.appendChild(labelled("Allergies", allergies));
+
+      const prefs = document.createElement("textarea");
+      prefs.id = "preferences" + i;
+      prefs.maxLength = 300;
+      prefs.placeholder = "For example: vegetarian, dislikes spicy food";
+      card.appendChild(labelled("Preferences or intolerances", prefs));
+    }
+
+    root.appendChild(card);
+  });
+}
+
+function loadInvite() {
+  if (!code) {
+    $("intro").classList.add("hidden");
+    $("noCode").classList.remove("hidden");
+    return;
   }
+  const found = INVITES[code.trim().toUpperCase()];
+  if (!found) {
+    $("intro").textContent = "We couldn't find that invitation. Please check your link.";
+    return;
+  }
+  invite = { party: found.party, type: found.type, people: found.people };
+  $("intro").textContent = "Hello " + invite.party + ". Please let us know by [RSVP DEADLINE].";
+  $("rsvp").classList.remove("hidden");
+}
 
-  // RSVP form (rsvp.html): save the reply to the RSVPs tab.
-  if (body.type === 'rsvp') {
-    try {
-      return json_(saveRsvp_(body));
-    } catch (err) {
-      console.error(err);
-      return json_({ error: "We couldn't save your RSVP. Please try again." });
+document.querySelectorAll('input[name="attending"]').forEach(r => {
+  r.addEventListener("change", () => {
+    attending = r.value;
+    document.querySelectorAll("#attendRow .choice").forEach(c => c.classList.toggle("selected", c.dataset.value === attending));
+    $("msg").textContent = "";
+    if (attending === "yes") {
+      renderPeople();
+      $("guestSection").classList.remove("hidden");
+    } else {
+      $("guestSection").classList.add("hidden");
+    }
+  });
+});
+
+$("rsvp").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("msg").textContent = "";
+  if (!attending) { $("msg").textContent = "Please let us know if you can join us."; return; }
+
+  let people = [];
+  if (attending === "yes") {
+    people = invite.people.map((p, i) => ({
+      name: $("name" + i).value.trim(),
+      starter: $("starter" + i) ? $("starter" + i).value : "",
+      main: $("main" + i) ? $("main" + i).value : "",
+      dessert: $("dessert" + i) ? $("dessert" + i).value : "",
+      allergies: $("allergies" + i) ? $("allergies" + i).value.trim() : "",
+      preferences: $("preferences" + i) ? $("preferences" + i).value.trim() : ""
+    }));
+    const missing = people.findIndex(p => !p.name);
+    if (missing !== -1) {
+      $("msg").textContent = "Please add the name for the plus one.";
+      $("name" + missing).focus();
+      return;
+    }
+    const needsMeal = people.findIndex((p, i) => invite.people[i].menu !== "none" && !p.main);
+    if (needsMeal !== -1) {
+      $("msg").textContent = "Please choose a main for " + (people[needsMeal].name || "your plus one") + ".";
+      $("main" + needsMeal).focus();
+      return;
     }
   }
 
-  // Website request: reserve the selection and return a Stripe Checkout link.
+  $("submit").disabled = true;
+  $("msg").textContent = "Sending...";
   try {
-    return json_(startCheckout_(body));
+    const res = await fetch(CHECKOUT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        type: "rsvp",
+        code,
+        attending,
+        notes: $("notes") ? $("notes").value.trim() : "",
+        people
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      $("rsvp").classList.add("hidden");
+      $("done").classList.remove("hidden");
+      if (attending === "no") {
+        $("doneTitle").textContent = "Sorry you can't make it";
+        $("doneText").textContent = "Thanks for letting us know. We'll miss you.";
+      }
+    } else {
+      $("msg").textContent = data.error || "Something went wrong. Please try again.";
+      $("submit").disabled = false;
+    }
   } catch (err) {
-    console.error(err);
-    return json_({ error: "We couldn't start the payment. Please try again." });
+    $("msg").textContent = "Couldn't reach us just now. Please try again.";
+    $("submit").disabled = false;
   }
-}
+});
 
-// ---------- One-off setup ----------
-
-function setup() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-
-  let alloc = ss.getSheetByName('Allocations');
-  if (!alloc) alloc = ss.insertSheet('Allocations');
-  alloc.getRange(1, 1, 1, 6).setValues([[
-    'Reservation ID', 'Sheet row', 'Experience', 'Amount (£)', 'Status', 'Hold expires'
-  ]]);
-  alloc.setFrozenRows(1);
-
-  // "Funded" on the Experiences tab is the total of paid amounts for that row.
-  const exp = ss.getSheetByName('Experiences');
-  const formulas = [];
-  for (let r = 2; r <= EXPERIENCE_COUNT + 1; r++) {
-    formulas.push(['=SUMIFS(Allocations!$D:$D,Allocations!$B:$B,ROW(),Allocations!$E:$E,"Paid")']);
-  }
-  exp.getRange(2, 5, formulas.length, 1).setFormulas(formulas);
-}
-
-// ---------- Reserving a selection and starting Stripe Checkout ----------
-
-function startCheckout_(body) {
-  const name = String(body.name || '').trim().slice(0, 60);
-  const message = String(body.message || '').trim().slice(0, 300);
-  const wanted = Array.isArray(body.allocation) ? body.allocation : [];
-  if (!name) return { error: 'Please add your name so we know who to thank.' };
-  if (!wanted.length) return { error: 'Please suggest some experiences first.' };
-
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  // Columns A-D: name, category, price, quantity. The server uses these numbers, never the page's.
-  const gifts = ss.getSheetByName('Experiences').getRange(2, 1, EXPERIENCE_COUNT, 4).getValues();
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    const { paid, held } = tally_();
-    const lines = [];
-    let total = 0;
-
-    for (const w of wanted) {
-      const i = Number(w.exp);
-      const amount = Math.round(Number(w.amount) * 100) / 100;
-      if (!Number.isInteger(i) || i < 0 || i >= gifts.length || !(amount > 0)) {
-        return { error: 'That selection did not work. Please click Suggest again.' };
-      }
-      const expName = gifts[i][0];
-      const price = Number(gifts[i][2]);
-      const qty = Number(gifts[i][3]);
-      const left = price * qty - (paid[i] || 0) - (held[i] || 0);
-      if (amount > left + 0.005) {
-        return { error: '"' + expName + '" was just funded by someone else. Please click Shuffle for a new set.' };
-      }
-      lines.push({ row: i + 2, name: expName, amount });
-      total += amount;
-    }
-
-    total = Math.round(total * 100) / 100;
-    if (total < 1) return { error: 'The minimum contribution is £1.' };
-
-    const now = new Date();
-    const expires = new Date(now.getTime() + HOLD_MINUTES * 60000);
-    const resId = 'R' + Utilities.formatDate(now, 'UTC', 'yyyyMMddHHmmss') + Math.floor(100 + Math.random() * 900);
-    const summary = lines.map(l => l.name + ' (£' + l.amount + ')').join('; ');
-
-    // Hold the amounts and record the request before going to Stripe.
-    ss.getSheetByName('Reservations').appendRow([resId, now, name, message, summary, total, 'Pending']);
-    const allocSheet = ss.getSheetByName('Allocations');
-    allocSheet.getRange(allocSheet.getLastRow() + 1, 1, lines.length, 6).setValues(
-      lines.map(l => [resId, l.row, l.name, l.amount, 'Pending', expires])
-    );
-
-    // Optional tick box: covers the standard UK card fee (1.5% + 20p) on top of the gift.
-    const coverFees = body.coverFees === true;
-    const feeAmount = coverFees ? Math.round((total * 0.015 + 0.2) * 100) / 100 : 0;
-    const feeLines = coverFees ? {
-      'line_items[1][price_data][currency]': 'gbp',
-      'line_items[1][price_data][unit_amount]': String(Math.round(feeAmount * 100)),
-      'line_items[1][price_data][product_data][name]': 'Towards card fees (optional)',
-      'line_items[1][quantity]': '1'
-    } : {};
-
-    let session;
-    try {
-      session = stripe_('checkout/sessions', {
-        mode: 'payment',
-        'line_items[0][price_data][currency]': 'gbp',
-        'line_items[0][price_data][unit_amount]': String(Math.round(total * 100)),
-        'line_items[0][price_data][product_data][name]': 'Honeymoon fund',
-        'line_items[0][price_data][product_data][description]': summary.slice(0, 450),
-        'line_items[0][quantity]': '1',
-        ...feeLines,
-        client_reference_id: resId,
-        'metadata[reservation_id]': resId,
-        success_url: SITE_URL + 'thanks.html?res=' + resId,
-        cancel_url: SITE_URL,
-        // Stripe needs the session to last at least 30 minutes, so it runs just past the hold.
-        expires_at: String(Math.floor(expires.getTime() / 1000) + 60)
-      });
-    } catch (err) {
-      console.error(err);
-      setStatus_(resId, 'Failed');
-      return { error: "We couldn't start the payment. Please try again." };
-    }
-
-    return { url: session.url };
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-// ---------- Stripe webhook ----------
-
-function handleStripeEvent_(eventId) {
-  // Fetch the event back from Stripe rather than trusting the request body.
-  const event = stripe_('events/' + encodeURIComponent(eventId));
-  const session = event.data.object;
-  const resId = session.metadata && session.metadata.reservation_id;
-  if (!resId) return;
-
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    if (event.type === 'checkout.session.completed' && session.payment_status === 'paid') {
-      markPaid_(resId, session);
-    } else if (event.type === 'checkout.session.expired') {
-      setStatus_(resId, 'Expired');
-    }
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function markPaid_(resId, session) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const gifts = ss.getSheetByName('Gifts');
-
-  // Stripe can send the same event more than once, so skip any payment already recorded.
-  const seen = gifts.getLastRow() > 1
-    ? gifts.getRange(2, 6, gifts.getLastRow() - 1, 1).getValues().flat()
-    : [];
-  if (seen.includes(session.id)) return;
-
-  const res = ss.getSheetByName('Reservations');
-  const rows = res.getDataRange().getValues();
-  const r = rows.findIndex((row, idx) => idx > 0 && row[0] === resId);
-  if (r < 0) throw new Error('Reservation not found: ' + resId);
-  const row = rows[r];
-
-  setStatus_(resId, 'Paid');
-  gifts.appendRow([
-    Utilities.formatDate(new Date(), 'Europe/London', 'd MMM yyyy HH:mm'),
-    row[2],                       // guest name
-    row[3],                       // message
-    row[4],                       // experiences chosen
-    row[5],                       // gift amount in pounds (excludes the optional card-fee tick box)
-    session.id,                   // Stripe checkout session ID
-    'Paid'
-  ]);
-}
-
-function setStatus_(resId, status) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  [['Reservations', 7], ['Allocations', 5]].forEach(([tab, col]) => {
-    const sh = ss.getSheetByName(tab);
-    const rows = sh.getDataRange().getValues();
-    rows.forEach((row, r) => {
-      if (r > 0 && row[0] === resId && row[col - 1] !== 'Paid') {
-        sh.getRange(r + 1, col).setValue(status);
-      }
-    });
-  });
-}
-
-// ---------- Helpers ----------
-
-// Totals per experience index (0 = first experience on the website).
-// Paid counts toward progress. Pending holds count only until they expire.
-function tally_() {
-  const paid = {};
-  const held = {};
-  const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Allocations');
-  const last = sh.getLastRow();
-  if (last < 2) return { paid, held };
-  const now = new Date();
-  sh.getRange(2, 1, last - 1, 6).getValues().forEach(row => {
-    const i = Number(row[1]) - 2;
-    const amount = Number(row[3]) || 0;
-    if (row[4] === 'Paid') paid[i] = (paid[i] || 0) + amount;
-    else if (row[4] === 'Pending' && new Date(row[5]) > now) held[i] = (held[i] || 0) + amount;
-  });
-  return { paid, held };
-}
-
-function stripe_(path, payload) {
-  const key = PropertiesService.getScriptProperties().getProperty('STRIPE_SECRET_KEY');
-  if (!key) throw new Error('STRIPE_SECRET_KEY is not set in Script properties');
-  const opts = {
-    method: payload ? 'post' : 'get',
-    headers: { Authorization: 'Bearer ' + key },
-    muteHttpExceptions: true
-  };
-  if (payload) {
-    opts.contentType = 'application/x-www-form-urlencoded';
-    opts.payload = Object.entries(payload)
-      .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
-      .join('&');
-  }
-  const res = UrlFetchApp.fetch('https://api.stripe.com/v1/' + path, opts);
-  const data = JSON.parse(res.getContentText());
-  if (res.getResponseCode() >= 300) {
-    throw new Error('Stripe error: ' + ((data.error && data.error.message) || res.getResponseCode()));
-  }
-  return data;
-}
-
-// ---------- Invitations (Guests tab) ----------
-
-// Everyone on the invitation with this code. Guests tab columns: Code, Party, Type, Name, Menu, Link.
-function guestsForCode_(code) {
-  const want = String(code || '').trim().toUpperCase();
-  if (!want) return [];
-  const sh = SpreadsheetApp.openById(SHEET_ID).getSheetByName('Guests');
-  if (!sh || sh.getLastRow() < 2) return [];
-  return sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues()
-    .filter(r => String(r[0]).trim().toUpperCase() === want)
-    .map(r => ({ party: String(r[1]), type: String(r[2]), name: String(r[3]), menu: String(r[4]) }));
-}
-
-// What the RSVP page needs to prefill an invitation. Unknown codes are refused.
-function inviteDetails_(code) {
-  const people = guestsForCode_(code);
-  if (!people.length) return { ok: false, error: "We couldn't find that invitation. Please check your link." };
-  return {
-    ok: true,
-    party: people[0].party,
-    type: people[0].type,
-    people: people.map(p => ({ name: p.name, menu: p.menu }))
-  };
-}
-
-// ---------- RSVPs ----------
-
-// Adds one RSVP to the RSVPs tab, creating the tab with headings the first time.
-// Names come from the Guests tab, so guests can't change who the invitation is for.
-function saveRsvp_(body) {
-  const invited = guestsForCode_(body.code);
-  if (!invited.length) return { error: "This invitation link isn't recognised. Please check it and try again." };
-  const contact = invited[0].party;
-  const clip = v => String(v || '').trim().slice(0, 300);
-  const stamp = Utilities.formatDate(new Date(), 'Europe/London', 'd MMM yyyy HH:mm');
-  const notes = clip(body.notes);
-
-  // One row per person on the invitation. A "no" gets a single row so it's still recorded.
-  const code = String(body.code || '').trim().toUpperCase();
-  let rows;
-  if (body.attending === 'yes') {
-    const answers = Array.isArray(body.people) ? body.people : [];
-    rows = invited.map((g, i) => {
-      const a = answers[i] || {};
-      return [stamp, contact, 'Yes', clip(g.name || a.name), clip(a.starter), clip(a.main), clip(a.dessert),
-        clip(a.allergies), clip(a.preferences), i === 0 ? notes : '', code];
-    });
-  } else {
-    rows = [[stamp, contact, 'No', '', '', '', '', '', '', notes, code]];
-  }
-
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  let sh = ss.getSheetByName('RSVPs');
-  if (!sh) {
-    sh = ss.insertSheet('RSVPs');
-    sh.appendRow(['Date', 'Contact', 'Attending', 'Guest name', 'Starter', 'Main', 'Dessert', 'Allergies', 'Preferences / intolerances', 'Notes', 'Code']);
-    sh.setFrozenRows(1);
-  }
-  sh.getRange(sh.getLastRow() + 1, 1, rows.length, 11).setValues(rows);
-  return { ok: true };
-}
-
-function json_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-// Gift list for the thank-you page (thanks.html on GitHub). Experiences and wording only, never guest names.
-// Whole gifts read "You've allowed us to experience ...", part-contributions read "You've helped us get closer to experiencing ...".
-function thankYouDetails_(resId) {
-  if (!resId) return { status: 'unknown', items: [] };
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const rows = ss.getSheetByName('Reservations').getDataRange().getValues();
-  const row = rows.find((r, idx) => idx > 0 && r[0] === resId);
-  if (!row) return { status: 'unknown', items: [] };
-
-  const expRows = ss.getSheetByName('Experiences').getRange(2, 1, EXPERIENCE_COUNT, 3).getValues();
-  const priceOf = {};
-  expRows.forEach(r => { priceOf[r[0]] = Number(r[2]); });
-
-  const items = String(row[4]).split('; ').map(s => {
-    const m = s.match(/^(.*) \(£([\d.]+)\)$/);
-    if (!m) return s;
-    const name = m[1];
-    const amt = Number(m[2]);
-    const price = priceOf[name];
-    const whole = price > 0 && amt % price === 0;
-    return whole
-      ? "You've allowed us to experience " + name
-      : "You've helped us get closer to experiencing " + name.replace(/^A share of /, '');
-  });
-  return { status: row[6] === 'Paid' ? 'paid' : 'pending', items };
-}
+loadInvite();
+</script>
+</body>
+</html>
