@@ -1170,6 +1170,8 @@ $("rsvp").addEventListener("submit", async e => {
       $("infoLead").textContent = attending === "no"
         ? "We've got your reply. Sorry you can't make it, we'll miss you."
         : "We've got your reply. Thank you, we can't wait to celebrate with you!";
+    } else if (data.alreadyResponded) {
+      showInfo({ attending: attending === "yes" ? "Yes" : "No" });
     } else {
       $("msg").textContent = data.error || "Something went wrong. Please try again.";
       $("submit").disabled = false;
