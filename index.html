@@ -1162,10 +1162,14 @@ $("rsvp").addEventListener("submit", async e => {
       $("intro").classList.add("hidden");
       $("rsvp").classList.add("hidden");
       $("done").classList.remove("hidden");
+      $("info").classList.remove("hidden");
       if (attending === "no") {
         $("doneTitle").textContent = "Sorry you can't make it";
         $("doneText").textContent = "Thanks for letting us know. We'll miss you.";
       }
+      $("infoLead").textContent = attending === "no"
+        ? "We've got your reply. Sorry you can't make it, we'll miss you."
+        : "We've got your reply. Thank you, we can't wait to celebrate with you!";
     } else {
       $("msg").textContent = data.error || "Something went wrong. Please try again.";
       $("submit").disabled = false;
