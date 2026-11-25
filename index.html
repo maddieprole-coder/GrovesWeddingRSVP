@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ryan &amp; Maddie Groves · RSVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #f6eddc;
+    --paper: #fbf6ea;
+    --ink: #3b2b1f;
+    --muted: #8b7760;
+    --line: #e4d6bb;
+    --ember: #a94a24;
+    --ember-deep: #7d3218;
+    --gold: #c98a3a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    padding: 40px 16px;
+    font-family: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 300;
+    font-size: 16px;
+    color: var(--ink);
+    background:
+      radial-gradient(120% 90% at 85% 0%, rgba(201,138,58,.55) 0%, transparent 55%),
+      linear-gradient(160deg, var(--ember-deep) 0%, var(--ember) 55%, #6b2a14 100%);
+  }
+  .card {
+    max-width: 560px;
+    margin: 0 auto;
+    background: var(--paper);
+    border-radius: 22px;
+    padding: 44px 36px;
+    box-shadow: 0 30px 60px -20px rgba(60,30,10,.35);
+  }
+  .eyebrow {
+    font-size: 12px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    text-align: center;
+    margin-bottom: 14px;
+    font-weight: 400;
+  }
+  h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 400;
+    font-size: 38px;
+    text-align: center;
+    margin: 0 0 10px;
+  }
+  h1 em { color: var(--ember); }
+  .intro { text-align: center; color: #5b4636; margin: 0 0 30px; }
+  .field { margin-bottom: 18px; }
+  label, .legend {
+    display: block;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    font-weight: 400;
+  }
+  input[type="text"], select, textarea {
+    width: 100%;
+    font-family: 'Lato', sans-serif;
+    font-size: 16px;
+    padding: 11px 14px;
+    color: var(--ink);
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  input[readonly] { background: #efe4cc; color: var(--muted); }
+  textarea { resize: vertical; min-height: 64px; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--ember); }
+  .choice-row { display: flex; gap: 12px; }
+  .choice {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 16px;
+    color: var(--ink);
+    margin: 0;
+    transition: background .2s, border-color .2s;
+  }
+  .choice:hover { border-color: var(--gold); }
+  .choice.selected { background: var(--ember); border-color: var(--ember); color: #fff; }
+  .choice input { display: none; }
+  .person {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 20px 6px;
+    margin-bottom: 18px;
+  }
+  .person h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
+    color: var(--ember);
+    margin: 0 0 14px;
+  }
+  .person .field:last-child { margin-bottom: 14px; }
+  .section-title {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ember);
+    margin: 30px 0 14px;
+  }
+  button.primary {
+    width: 100%;
+    font-family: 'Lato', sans-serif;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 15px 22px;
+    border-radius: 999px;
+    border: 1px solid var(--ember);
+    background: var(--ember);
+    color: #fff;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+  button.primary:hover { background: var(--ember-deep); border-color: var(--ember-deep); }
+  button:disabled { opacity: .6; cursor: default; }
+  .msg { min-height: 1.5em; text-align: center; color: var(--ember); margin-top: 14px; font-size: 15px; }
+  .names {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 46px;
+    line-height: 1.05;
+    text-align: center;
+    color: var(--ink);
+  }
+  .names em { color: var(--ember); }
+  .surname {
+    text-align: center;
+    font-size: 14px;
+    letter-spacing: 6px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin: 6px 0 16px;
+  }
+  .details {
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 26px;
+  }
+  .hidden { display: none !important; }
+  .done { text-align: center; padding: 20px 0; }
+  .done h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 400; font-size: 30px; margin: 10px 0; }
+  .done p { color: #5b4636; }
+  @media (max-width: 600px) {
+    .card { padding: 32px 22px; }
+    h1 { font-size: 30px; }
+    .choice-row { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="names">Ryan <em>&amp;</em> Maddie</div>
+  <div class="surname">Groves</div>
+  <p class="details">[WEDDING DATE] &middot; [VENUE]</p>
+  <h1>Will you <em>join us</em>?</h1>
+  <p class="intro" id="intro">Loading your invitation...</p>
+
+  <!-- Shown when the link has no valid code -->
+  <div class="msg hidden" id="noCode" style="font-size:16px;color:var(--ink)">Please use the link from your invitation to reply.</div>
+
+  <form id="rsvp" class="hidden" novalidate>
+
+    <section>
+      <span class="legend">Will you be there?</span>
+      <div class="choice-row" id="attendRow">
+        <label class="choice" data-value="yes"><input type="radio" name="attending" value="yes">Joyfully yes</label>
+        <label class="choice" data-value="no"><input type="radio" name="attending" value="no">Sadly no</label>
+      </div>
+    </section>
+
+    <section id="guestSection" class="hidden">
+      <div class="section-title">Your details</div>
+      <div id="people"></div>
+
+      <div class="field">
+        <label for="notes">Anything else we should know?</label>
+        <textarea id="notes" maxlength="300" placeholder="Anything else you'd like us to know"></textarea>
+      </div>
+    </section>
+
+    <button type="submit" class="primary" id="submit">Send RSVP</button>
+    <div class="msg" id="msg"></div>
+  </form>
+
+  <div class="done hidden" id="done">
+    <h2 id="doneTitle">Thank you!</h2>
+    <p id="doneText">We've got your RSVP and can't wait to celebrate with you.</p>
+  </div>
+</main>
+
+<script>
+// Same web app URL as the gift page.
+const CHECKOUT_ENDPOINT = "https://script.google.com/macros/s/AKfycbxJApu6vpn5KDox0QvngqmKdQHM3H01O5lmvf8NfIk9ag6GQ6zemhLqRJSTM95kz2wY/exec";
+const $ = id => document.getElementById(id);
+const code = new URLSearchParams(location.search).get("code") || "";
+
+// Placeholder menus. Replace these lists with the real choices.
+const MENU = {
+  adult: {
+    starter: ["Starter option 1", "Starter option 2"],
+    main: ["Main option 1", "Main option 2", "Vegetarian option"],
+    dessert: ["Dessert option 1", "Dessert option 2"]
+  },
+  kids: {
+    main: ["Kids option 1", "Kids option 2"],
+    dessert: ["Kids dessert option"]
+  }
+};
+
+let invite = null;
+let attending = null;
+
+function selectOptions(id, options) {
+  const sel = document.createElement("select");
+  sel.id = id;
+  const blank = document.createElement("option");
+  blank.value = "";
+  blank.textContent = "Choose one";
+  sel.appendChild(blank);
+  options.forEach(o => {
+    const opt = document.createElement("option");
+    opt.value = o;
+    opt.textContent = o;
+    sel.appendChild(opt);
+  });
+  return sel;
+}
+
+function labelled(text, control) {
+  const wrap = document.createElement("div");
+  wrap.className = "field";
+  const lab = document.createElement("label");
+  lab.textContent = text;
+  wrap.append(lab, control);
+  return wrap;
+}
+
+// One card per person on the invitation, names filled in from the guest list.
+function renderPeople() {
+  const root = $("people");
+  root.innerHTML = "";
+  invite.people.forEach((p, i) => {
+    const card = document.createElement("div");
+    card.className = "person";
+    const h = document.createElement("h3");
+    h.textContent = p.name || "Plus one";
+    card.appendChild(h);
+
+    // Named guests are fixed; a plus one types their own name.
+    const name = document.createElement("input");
+    name.type = "text";
+    name.maxLength = 80;
+    name.id = "name" + i;
+    name.value = p.name;
+    if (p.name) name.readOnly = true;
+    else name.placeholder = "Their name";
+    card.appendChild(labelled("Name", name));
+
+    if (p.menu === "adult" || p.menu === "kids") {
+      const set = MENU[p.menu];
+      if (set.starter) card.appendChild(labelled("Starter", selectOptions("starter" + i, set.starter)));
+      card.appendChild(labelled("Main", selectOptions("main" + i, set.main)));
+      card.appendChild(labelled("Dessert", selectOptions("dessert" + i, set.dessert)));
+
+      const allergies = document.createElement("textarea");
+      allergies.id = "allergies" + i;
+      allergies.maxLength = 300;
+      allergies.placeholder = "For example: nuts, shellfish";
+      card.appendChild(labelled("Allergies", allergies));
+
+      const prefs = document.createElement("textarea");
+      prefs.id = "preferences" + i;
+      prefs.maxLength = 300;
+      prefs.placeholder = "For example: vegetarian, dislikes spicy food";
+      card.appendChild(labelled("Preferences or intolerances", prefs));
+    }
+
+    root.appendChild(card);
+  });
+}
+
+async function loadInvite() {
+  if (!code) {
+    $("intro").classList.add("hidden");
+    $("noCode").classList.remove("hidden");
+    return;
+  }
+  try {
+    const res = await fetch(CHECKOUT_ENDPOINT + "?action=invite&code=" + encodeURIComponent(code));
+    const data = await res.json();
+    if (!data.ok) {
+      $("intro").textContent = data.error || "We couldn't find that invitation.";
+      return;
+    }
+    invite = data;
+    $("intro").textContent = "Hello " + data.party + ". Please let us know by [RSVP DEADLINE].";
+    $("rsvp").classList.remove("hidden");
+  } catch (err) {
+    $("intro").textContent = "We couldn't load your invitation. Please try again.";
+  }
+}
+
+document.querySelectorAll('input[name="attending"]').forEach(r => {
+  r.addEventListener("change", () => {
+    attending = r.value;
+    document.querySelectorAll("#attendRow .choice").forEach(c => c.classList.toggle("selected", c.dataset.value === attending));
+    $("msg").textContent = "";
+    if (attending === "yes") {
+      renderPeople();
+      $("guestSection").classList.remove("hidden");
+    } else {
+      $("guestSection").classList.add("hidden");
+    }
+  });
+});
+
+$("rsvp").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("msg").textContent = "";
+  if (!attending) { $("msg").textContent = "Please let us know if you can join us."; return; }
+
+  let people = [];
+  if (attending === "yes") {
+    people = invite.people.map((p, i) => ({
+      name: $("name" + i).value.trim(),
+      starter: $("starter" + i) ? $("starter" + i).value : "",
+      main: $("main" + i) ? $("main" + i).value : "",
+      dessert: $("dessert" + i) ? $("dessert" + i).value : "",
+      allergies: $("allergies" + i) ? $("allergies" + i).value.trim() : "",
+      preferences: $("preferences" + i) ? $("preferences" + i).value.trim() : ""
+    }));
+    const missing = people.findIndex(p => !p.name);
+    if (missing !== -1) {
+      $("msg").textContent = "Please add the name for the plus one.";
+      $("name" + missing).focus();
+      return;
+    }
+    const needsMeal = people.findIndex((p, i) => invite.people[i].menu !== "none" && !p.main);
+    if (needsMeal !== -1) {
+      $("msg").textContent = "Please choose a main for " + (people[needsMeal].name || "your plus one") + ".";
+      $("main" + needsMeal).focus();
+      return;
+    }
+  }
+
+  $("submit").disabled = true;
+  $("msg").textContent = "Sending...";
+  try {
+    const res = await fetch(CHECKOUT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify({
+        type: "rsvp",
+        code,
+        attending,
+        notes: $("notes") ? $("notes").value.trim() : "",
+        people
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      $("rsvp").classList.add("hidden");
+      $("done").classList.remove("hidden");
+      if (attending === "no") {
+        $("doneTitle").textContent = "Sorry you can't make it";
+        $("doneText").textContent = "Thanks for letting us know. We'll miss you.";
+      }
+    } else {
+      $("msg").textContent = data.error || "Something went wrong. Please try again.";
+      $("submit").disabled = false;
+    }
+  } catch (err) {
+    $("msg").textContent = "Couldn't reach us just now. Please try again.";
+    $("submit").disabled = false;
+  }
+});
+
+loadInvite();
+</script>
+</body>
+</html>
