@@ -169,6 +169,17 @@
   .done { text-align: center; padding: 20px 0; }
   .done h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 400; font-size: 30px; margin: 10px 0; }
   .done p { color: #5b4636; }
+  .info-lead { text-align: center; font-size: 18px; color: var(--ink); margin: 0 0 12px; }
+  .info-block { border-top: 1px solid var(--line); padding: 18px 0; text-align: center; }
+  .info-block h3 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 20px;
+    color: var(--ember);
+    margin: 0 0 6px;
+  }
+  .info-block p { margin: 0; color: #5b4636; }
   @media (max-width: 600px) {
     .card { padding: 32px 22px; }
     h1 { font-size: 30px; }
@@ -181,7 +192,7 @@
   <div class="names">Ryan <em>&amp;</em> Maddie</div>
   <div class="surname">Groves</div>
   <p class="details">5 November 2027 &middot; Cooling Castle Barn</p>
-  <h1>Will you <em>join us</em>?</h1>
+  <h1 id="title">Will you <em>join us</em>?</h1>
   <p class="intro" id="intro">Loading your invitation...</p>
 
   <!-- Shown when the link has no valid code -->
@@ -214,6 +225,16 @@
   <div class="done hidden" id="done">
     <h2 id="doneTitle">Thank you!</h2>
     <p id="doneText">We've got your RSVP and can't wait to celebrate with you.</p>
+  </div>
+
+  <div id="info" class="hidden">
+    <p class="info-lead" id="infoLead">We've got your reply. Thank you!</p>
+    <div class="info-block"><h3>When</h3><p>5 November 2027, [CEREMONY TIME]</p></div>
+    <div class="info-block"><h3>Where</h3><p>Cooling Castle Barn<br>[ADDRESS]</p></div>
+    <div class="info-block"><h3>Getting there</h3><p>[TRAVEL DETAILS]</p></div>
+    <div class="info-block"><h3>Stay</h3><p>[ACCOMMODATION]</p></div>
+    <div class="info-block"><h3>Dress</h3><p>[DRESS CODE]</p></div>
+    <div class="info-block"><h3>Questions</h3><p>[CONTACT]</p></div>
   </div>
 </main>
 
@@ -1027,7 +1048,7 @@ function renderPeople() {
   });
 }
 
-function loadInvite() {
+async function loadInvite() {
   if (!code) {
     $("intro").classList.add("hidden");
     $("noCode").classList.remove("hidden");
@@ -1039,8 +1060,32 @@ function loadInvite() {
     return;
   }
   invite = { party: found.party, type: found.type, people: found.people };
+
+  // If this code has already replied, show the info page instead of the form.
+  try {
+    const res = await fetch(CHECKOUT_ENDPOINT + "?action=status&code=" + encodeURIComponent(code));
+    const status = await res.json();
+    if (status.ok && status.responded) {
+      showInfo(status);
+      return;
+    }
+  } catch (err) {
+    // If the check fails, fall through to the form.
+  }
+
   $("intro").textContent = "Hello " + invite.party + ". Please let us know by [RSVP DEADLINE].";
   $("rsvp").classList.remove("hidden");
+}
+
+function showInfo(status) {
+  $("title").classList.add("hidden");
+  $("intro").classList.add("hidden");
+  $("rsvp").classList.add("hidden");
+  $("done").classList.add("hidden");
+  $("infoLead").textContent = status.attending === "No"
+    ? "We've got your reply. Sorry you can't make it, we'll miss you."
+    : "We've got your reply. Thank you, we can't wait to celebrate with you!";
+  $("info").classList.remove("hidden");
 }
 
 document.querySelectorAll('input[name="attending"]').forEach(r => {
@@ -1102,6 +1147,8 @@ $("rsvp").addEventListener("submit", async e => {
     });
     const data = await res.json();
     if (data.ok) {
+      $("title").classList.add("hidden");
+      $("intro").classList.add("hidden");
       $("rsvp").classList.add("hidden");
       $("done").classList.remove("hidden");
       if (attending === "no") {
